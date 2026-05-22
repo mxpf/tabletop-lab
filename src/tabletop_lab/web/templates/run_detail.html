@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Run {{ run.id }}</h1>
+    <p><a href="/games/{{ game.id }}">{{ game.name }}</a> · {{ run.variant_name }} · {{ run.bot_lineup|join(", ") }}</p>
+  </div>
+  <span class="status {{ run.status }}">{{ run.status }}</span>
+</div>
+
+<section class="panel" data-run-id="{{ run.id }}">
+  <h2>Progress</h2>
+  <div class="progress"><div class="progress-bar" style="width: {{ 100 * run.progress_completed / run.progress_total if run.progress_total else 0 }}%"></div></div>
+  <p class="progress-text">{{ run.progress_completed }} / {{ run.progress_total }} games</p>
+  <dl class="metrics">
+    <dt>Elapsed</dt><dd data-field="elapsed">{{ "%.2f"|format(run.elapsed_seconds or 0) }}s</dd>
+    <dt>Games/sec</dt><dd data-field="gps"></dd>
+    <dt>ETA</dt><dd data-field="eta"></dd>
+  </dl>
+  {% if run.error_message %}<pre class="error">{{ run.error_message }}</pre>{% endif %}
+</section>
+
+{% if run.summary_json %}
+{% set summary = run.summary_json %}
+<section>
+  <h2>Summary</h2>
+  <table>
+    <tr><th>Average Turns</th><td>{{ "%.2f"|format(summary.get("average_turns", 0)) }}</td></tr>
+    <tr><th>End Conditions</th><td>{{ summary.get("end_condition_rates", {}) }}</td></tr>
+    <tr><th>Closed Accounts/Game</th><td>{{ "%.2f"|format(summary.get("average_closed_accounts_total", 0)) }}</td></tr>
+    <tr><th>Average Scores</th><td>{{ summary.get("average_final_scores", {}) }}</td></tr>
+    <tr><th>Win Rates</th><td>{{ summary.get("win_rates", {}) }}</td></tr>
+    <tr><th>Action Counts</th><td>{{ summary.get("action_counts", {}) }}</td></tr>
+    <tr><th>Call Success Rate</th><td>{{ "%.1f"|format(100 * summary.get("call_success_rate", 0)) }}%</td></tr>
+    <tr><th>Furnace</th><td>wins {{ summary.get("furnace_wins", 0) }}, empty {{ summary.get("furnace_empty_discards", 0) }}, ties {{ summary.get("furnace_tie_discards", 0) }}</td></tr>
+  </table>
+  <details>
+    <summary>Raw JSON</summary>
+    <pre>{{ summary|json_pretty }}</pre>
+  </details>
+</section>
+{% endif %}
+{% endblock %}
+

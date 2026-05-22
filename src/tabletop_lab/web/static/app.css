@@ -1,0 +1,265 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f7f4;
+  --text: #20201d;
+  --muted: #66645c;
+  --line: #d9d6cc;
+  --panel: #ffffff;
+  --accent: #205b49;
+  --accent-2: #7b3f26;
+  --danger: #9f2f2f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a { color: var(--accent); }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+nav {
+  display: flex;
+  gap: 16px;
+}
+
+nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.page {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 28px auto 64px;
+}
+
+.hero {
+  padding: 36px 0 28px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 44px;
+}
+
+.hero p {
+  max-width: 700px;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.steps span,
+.status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff;
+}
+
+.status.running { border-color: #d5aa34; }
+.status.complete { border-color: #5e966e; }
+.status.failed { border-color: var(--danger); color: var(--danger); }
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin: 24px 0 14px;
+}
+
+h1, h2, h3 { line-height: 1.15; }
+h2 { margin-top: 0; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.card,
+.panel,
+.notice {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.notice {
+  border-color: #d5aa34;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 10px;
+}
+
+dt { color: var(--muted); }
+dd { margin: 0; }
+
+.button,
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.form,
+.run-form {
+  display: grid;
+  gap: 14px;
+}
+
+.run-form {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  align-items: end;
+}
+
+label {
+  display: grid;
+  gap: 5px;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #efede7;
+  font-size: 13px;
+}
+
+.rules,
+pre {
+  max-height: 460px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.progress {
+  height: 16px;
+  overflow: hidden;
+  background: #e6e1d7;
+  border-radius: 999px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent-2);
+  transition: width 0.2s ease;
+}
+
+.metrics {
+  grid-template-columns: repeat(3, max-content 1fr);
+}
+
+.checkbox-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.checkbox-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.checkbox-list input {
+  width: auto;
+}
+
+.error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .topbar,
+  .section-head {
+    flex-direction: column;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+

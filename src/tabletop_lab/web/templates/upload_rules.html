@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Rules for {{ game.name }}</h1>
+<div class="two-col">
+  <section class="panel">
+    <h2>Paste Rules</h2>
+    <form class="form" action="/games/{{ game.id }}/rules" method="post">
+      <textarea name="rules_text" rows="18">{{ game.rules_text }}</textarea>
+      <button type="submit">Save Rules</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Upload PDF</h2>
+    <form class="form" action="/games/{{ game.id }}/upload-rules" method="post" enctype="multipart/form-data">
+      <input type="file" name="pdf_file" accept="application/pdf" required>
+      <button type="submit">Extract Text</button>
+    </form>
+    {% if preview %}
+    <h3>Extracted Preview</h3>
+    <pre class="rules">{{ preview }}</pre>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+

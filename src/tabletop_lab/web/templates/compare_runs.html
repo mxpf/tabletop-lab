@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Compare Runs for {{ game.name }}</h1>
+<form class="panel" method="get" action="/games/{{ game.id }}/compare">
+  <h2>Select Completed Runs</h2>
+  <div class="checkbox-list">
+    {% for run in completed_runs %}
+    <label>
+      <input type="checkbox" name="run_id" value="{{ run.id }}" {% if run.id in selected_ids %}checked{% endif %}>
+      #{{ run.id }} {{ run.variant_name }} · {{ run.number_of_games }} games · {{ run.bot_lineup|join(", ") }}
+    </label>
+    {% endfor %}
+  </div>
+  <button type="submit">Compare Runs</button>
+</form>
+
+{% if rows %}
+<table>
+  <thead>
+    <tr>
+      <th>Run</th><th>Variant</th><th>Games</th><th>Bots</th><th>Avg Turns</th>
+      <th>Closed End</th><th>Deck End</th><th>Closed/Game</th><th>Scores</th>
+      <th>Wins</th><th>Claims</th><th>Call Success</th><th>Burns</th><th>Furnace</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><a href="/runs/{{ row.id }}">#{{ row.id }}</a></td>
+      <td>{{ row.variant }}</td>
+      <td>{{ row.games }}</td>
+      <td>{{ row.bots }}</td>
+      <td>{{ "%.2f"|format(row.average_turns) }}</td>
+      <td>{{ "%.1f"|format(100 * row.closed_end_rate) }}%</td>
+      <td>{{ "%.1f"|format(100 * row.deck_end_rate) }}%</td>
+      <td>{{ "%.2f"|format(row.closed_total) }}</td>
+      <td>{{ row.average_scores }}</td>
+      <td>{{ row.win_rates }}</td>
+      <td>{{ row.claim_count }}</td>
+      <td>{{ "%.1f"|format(100 * row.call_success_rate) }}%</td>
+      <td>{{ row.burn_count }}</td>
+      <td>{{ row.furnace_wins }} wins / {{ row.furnace_empty_discards }} empty / {{ row.furnace_tie_discards }} ties</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}
+

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Help</h1>
+<section class="prose">
+  <h2>What Tabletop Lab Is</h2>
+  <p>Tabletop Lab is a local playtest workspace for small tabletop card and token games. It stores rules, runs deterministic bot simulations, saves prior runs, and compares metrics.</p>
+
+  <h2>Create a Game</h2>
+  <p>Use New Game to create a record with a name, description, notes, and rules text. Black Ledger is preloaded as a built-in playable module.</p>
+
+  <h2>Paste or Upload Rules</h2>
+  <p>You can paste rules into a textarea or upload a PDF. PDF text is extracted and stored with the game record.</p>
+  <p><strong>Pasted or uploaded rules are stored for reference. To simulate a new game, a game module still needs to be implemented in code.</strong></p>
+
+  <h2>Run a Black Ledger Simulation</h2>
+  <p>Open Black Ledger, choose a variant, choose bots for Player 0, Player 1, and Player 2, set the number of games, and start the run. The run detail page polls progress.</p>
+
+  <h2>Read the Metrics</h2>
+  <p>Run summaries include average turns, end condition rates, average scores, win rates, action counts, Call success rate, Burn count, and Furnace outcomes.</p>
+
+  <h2>Compare Prior Tests</h2>
+  <p>Open Compare Runs from a game page, select completed runs, and review the table side by side.</p>
+
+  <h2>CLI</h2>
+  <pre>python3 scripts/run_game.py --game black_ledger --variant base_3p --seed 42 --transcript
+python3 scripts/run_simulation.py --game black_ledger --variant five_numerals_starting_ledger_3 --games 1000 --progress
+python3 scripts/compare_variants.py base_3p five_numerals_starting_ledger_3 --games 5000 --progress</pre>
+</section>
+{% endblock %}

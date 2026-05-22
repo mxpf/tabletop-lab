@@ -8,7 +8,13 @@ version = "0.1.0"
 description = "Reusable simulation framework for small tabletop card and token games."
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "fastapi>=0.110",
+    "jinja2>=3.1",
+    "pypdf>=4.0",
+    "python-multipart>=0.0.9",
+    "uvicorn>=0.27",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
@@ -19,6 +25,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["tabletop_lab*"]
+
+[tool.setuptools.package-data]
+tabletop_lab = ["web/templates/*.html", "web/static/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

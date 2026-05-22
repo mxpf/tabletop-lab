@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>{{ game.name }}</h1>
+    <p>{{ game.description }}</p>
+  </div>
+  <a class="button" href="/games/{{ game.id }}/upload-rules">Paste or Upload Rules</a>
+</div>
+
+{% if is_black_ledger %}
+<section class="panel">
+  <h2>Run Simulation</h2>
+  <form class="run-form" action="/runs/start" method="post">
+    <input type="hidden" name="game_id" value="{{ game.id }}">
+    <label>Variant
+      <select name="variant_name">
+        {% for variant in variants %}
+        <option value="{{ variant }}" {% if variant == "five_numerals_starting_ledger_3" %}selected{% endif %}>{{ variant }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Player 0
+      <select name="player0_bot">{% for key, label in bots.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label>Player 1
+      <select name="player1_bot">{% for key, label in bots.items() %}<option value="{{ key }}" {% if key == "builder" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label>Player 2
+      <select name="player2_bot">{% for key, label in bots.items() %}<option value="{{ key }}" {% if key == "greedy" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label>Games <input type="number" name="number_of_games" min="1" value="100"></label>
+    <label>Seed <input type="number" name="seed" placeholder="optional"></label>
+    <label>Progress Every <input type="number" name="progress_every" min="1" value="25"></label>
+    <button type="submit">Start Run</button>
+  </form>
+</section>
+{% else %}
+<section class="notice">
+  Pasted or uploaded rules are stored for reference. To simulate this game, a game module still needs to be implemented in code.
+</section>
+{% endif %}
+
+<section>
+  <div class="section-head">
+    <h2>Previous Runs</h2>
+    <a class="button" href="/games/{{ game.id }}/compare">Compare Runs</a>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Variant</th><th>Games</th><th>Bots</th><th>Status</th>
+        <th>Avg Turns</th><th>End Rates</th><th>Closed/Game</th><th>Win Rates</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      {% set summary = run.summary_json or {} %}
+      <tr>
+        <td>{{ run.started_at or "queued" }}</td>
+        <td>{{ run.variant_name }}</td>
+        <td>{{ run.number_of_games }}</td>
+        <td>{{ run.bot_lineup|join(", ") }}</td>
+        <td><span class="status {{ run.status }}">{{ run.status }}</span></td>
+        <td>{{ "%.2f"|format(summary.get("average_turns", 0)) if summary else "" }}</td>
+        <td>
+          {% if summary %}
+          closed {{ "%.1f"|format(100 * summary.get("end_condition_rates", {}).get("closed_accounts", 0)) }}%,
+          deck {{ "%.1f"|format(100 * summary.get("end_condition_rates", {}).get("deck_empty", 0)) }}%
+          {% endif %}
+        </td>
+        <td>{{ "%.2f"|format(summary.get("average_closed_accounts_total", 0)) if summary else "" }}</td>
+        <td>{{ summary.get("win_rates", {}) if summary else "" }}</td>
+        <td><a href="/runs/{{ run.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Rules</h2>
+  <pre class="rules">{{ game.rules_text }}</pre>
+</section>
+{% endblock %}
+
