@@ -1,6 +1,6 @@
 # Tabletop Lab
 
-Tabletop Lab is a Python simulation framework for small tabletop card and token games. It is built for game designers who want deterministic playtests, rule-variant comparisons, useful metrics, and replayable games by seed.
+Tabletop Lab is a Python simulation framework and local browser app for small tabletop card and token games. It is built for game designers who want deterministic playtests, rule-variant comparisons, useful metrics, saved run history, and replayable games by seed.
 
 The first included game is **Black Ledger**, a 3-player gambling-den card game of hidden Stakes, bluffing, denial, Heat, and closing Accounts before cards reach the Furnace.
 
@@ -13,7 +13,32 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-Tabletop Lab targets Python 3.11+ and uses the standard library except for pytest in development.
+Tabletop Lab targets Python 3.11+ for normal development. The core simulator uses the standard library; the browser app uses FastAPI, Jinja2, Uvicorn, SQLite, and pypdf.
+
+## Run the Local Web App
+
+```bash
+python3 scripts/run_web.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+The app lets you:
+
+- Create or select a game.
+- Paste rules or upload a PDF.
+- Run a Black Ledger simulation.
+- Watch progress with games/sec and estimated time remaining.
+- Review previous test runs saved in SQLite.
+- Compare completed runs in a table.
+
+Saved app data lives in `data/tabletop_lab.sqlite`. Uploaded PDFs are stored under `uploads/`. Both are ignored by git by default.
+
+Pasted or uploaded rules are stored for reference. To simulate a new game, a game module still needs to be implemented in code.
 
 ## Run Tests
 
@@ -89,3 +114,15 @@ The comparison table includes average score, average Closed Accounts, end condit
 6. Add small scripts or reuse the Black Ledger scripts as templates.
 
 Correctness matters more than abstraction. Prefer clear game-owned logic over generic machinery until a second game proves an abstraction is useful.
+
+## Web App Architecture
+
+`src/tabletop_lab/web` contains the local browser app:
+
+- `app.py`: FastAPI routes and page rendering.
+- `database.py`: SQLite schema and persistence helpers.
+- `services.py`: Black Ledger run orchestration, PDF extraction, and comparison helpers.
+- `templates/`: plain Jinja2 pages.
+- `static/`: small CSS and JavaScript files.
+
+The CLI scripts remain the fastest way to run large batches from a terminal. The web app is intended for interactive local playtest tracking and browsing prior results.
