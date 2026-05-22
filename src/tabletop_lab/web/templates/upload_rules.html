@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Rules for {{ game.name }}</h1>
+{% if error %}
+<div class="error-banner">{{ error }}</div>
+{% endif %}
 <div class="two-col">
   <section class="panel">
     <h2>Paste Rules</h2>
@@ -22,4 +25,3 @@
   </section>
 </div>
 {% endblock %}
-

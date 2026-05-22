@@ -73,12 +73,25 @@ nav a {
   margin-top: 18px;
 }
 
-.steps span,
+.steps a,
 .status {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 6px 10px;
   background: #fff;
+}
+
+.steps a {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.steps a:hover,
+.steps a:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(32, 91, 73, 0.14);
+  outline: none;
 }
 
 .status.running { border-color: #d5aa34; }
@@ -251,6 +264,21 @@ pre {
   color: var(--danger);
 }
 
+.error-banner {
+  margin: 12px 0;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.helper {
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+
 @media (max-width: 720px) {
   .topbar,
   .section-head {
@@ -262,4 +290,3 @@ pre {
     overflow-x: auto;
   }
 }
-

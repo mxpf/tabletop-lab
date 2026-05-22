@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Compare Runs for {{ game.name }}</h1>
+<h1 id="compare-runs">Compare Runs for {{ game.name }}</h1>
 <form class="panel" method="get" action="/games/{{ game.id }}/compare">
   <h2>Select Completed Runs</h2>
   <div class="checkbox-list">
@@ -46,4 +46,3 @@
 </table>
 {% endif %}
 {% endblock %}
-

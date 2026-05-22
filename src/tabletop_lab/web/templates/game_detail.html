@@ -9,7 +9,7 @@
 </div>
 
 {% if is_black_ledger %}
-<section class="panel">
+<section class="panel" id="run-simulation">
   <h2>Run Simulation</h2>
   <form class="run-form" action="/runs/start" method="post">
     <input type="hidden" name="game_id" value="{{ game.id }}">
@@ -41,10 +41,10 @@
 </section>
 {% endif %}
 
-<section>
+<section id="run-history">
   <div class="section-head">
     <h2>Previous Runs</h2>
-    <a class="button" href="/games/{{ game.id }}/compare">Compare Runs</a>
+    <a class="button" id="compare-runs" href="/games/{{ game.id }}/compare">Compare Runs</a>
   </div>
   <table>
     <thead>
@@ -83,4 +83,3 @@
   <pre class="rules">{{ game.rules_text }}</pre>
 </section>
 {% endblock %}
-

@@ -25,12 +25,14 @@ def create_app() -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
+        black_ledger_id = database.BUILT_IN_BLACK_LEDGER_ID
         return templates.TemplateResponse(
             "index.html",
             {
                 "request": request,
                 "games": database.list_games(),
                 "title": "Tabletop Lab",
+                "black_ledger_id": black_ledger_id,
             },
         )
 
@@ -40,21 +42,64 @@ def create_app() -> FastAPI:
 
     @app.get("/games/new", response_class=HTMLResponse)
     def new_game(request: Request):
-        return templates.TemplateResponse("new_game.html", {"request": request, "title": "New Game"})
+        return templates.TemplateResponse(
+            "new_game.html",
+            {"request": request, "title": "New Game", "error": None},
+        )
 
     @app.post("/games")
-    def create_game(
+    async def create_game(
+        request: Request,
         name: Annotated[str, Form()],
         description: Annotated[str, Form()] = "",
         rules_text: Annotated[str, Form()] = "",
         notes: Annotated[str, Form()] = "",
+        pdf_file: Optional[UploadFile] = File(default=None),
     ):
+        source_type = "manual"
+        source_path = None
+        final_rules_text = rules_text.strip()
+        if not final_rules_text and pdf_file and pdf_file.filename:
+            if not pdf_file.filename.lower().endswith(".pdf"):
+                return templates.TemplateResponse(
+                    "new_game.html",
+                    {
+                        "request": request,
+                        "title": "New Game",
+                        "error": "Please upload a PDF file.",
+                    },
+                    status_code=400,
+                )
+            try:
+                final_rules_text, source_path = services.extract_pdf_text(pdf_file.file, pdf_file.filename)
+            except Exception as exc:  # noqa: BLE001 - show extraction failure clearly in the UI.
+                return templates.TemplateResponse(
+                    "new_game.html",
+                    {
+                        "request": request,
+                        "title": "New Game",
+                        "error": f"Could not extract text from that PDF: {exc}",
+                    },
+                    status_code=400,
+                )
+            if not final_rules_text:
+                return templates.TemplateResponse(
+                    "new_game.html",
+                    {
+                        "request": request,
+                        "title": "New Game",
+                        "error": "The PDF did not contain extractable text.",
+                    },
+                    status_code=400,
+                )
+            source_type = "pdf"
         game = database.create_game(
             name=name.strip(),
             description=description.strip(),
-            rules_text=rules_text.strip(),
+            rules_text=final_rules_text,
             notes=notes.strip(),
-            source_type="manual",
+            source_type=source_type,
+            source_path=source_path,
         )
         return RedirectResponse(f"/games/{game.id}", status_code=303)
 
@@ -105,7 +150,32 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="game not found") from exc
         if not pdf_file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="please upload a PDF file")
-        text, path = services.extract_pdf_text(pdf_file.file, pdf_file.filename)
+        try:
+            text, path = services.extract_pdf_text(pdf_file.file, pdf_file.filename)
+        except Exception as exc:  # noqa: BLE001 - show extraction failure clearly in the UI.
+            return templates.TemplateResponse(
+                "upload_rules.html",
+                {
+                    "request": request,
+                    "title": "Upload Rules",
+                    "game": game,
+                    "preview": None,
+                    "error": f"Could not extract text from that PDF: {exc}",
+                },
+                status_code=400,
+            )
+        if not text:
+            return templates.TemplateResponse(
+                "upload_rules.html",
+                {
+                    "request": request,
+                    "title": "Upload Rules",
+                    "game": game,
+                    "preview": None,
+                    "error": "The PDF did not contain extractable text.",
+                },
+                status_code=400,
+            )
         database.update_game_rules(game_id, rules_text=text, source_type="pdf", source_path=path)
         updated = database.get_game(game_id)
         return templates.TemplateResponse(
