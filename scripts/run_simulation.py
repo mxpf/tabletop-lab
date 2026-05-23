@@ -6,13 +6,39 @@ import json
 import sys
 
 from tabletop_lab.engine import Simulator
-from tabletop_lab.games.black_ledger import BOT_REGISTRY, BlackLedgerRules, get_variant
-from tabletop_lab.games.black_ledger.metrics import summarize_results
+from tabletop_lab.games.black_ledger import (
+    BOT_REGISTRY as BLACK_LEDGER_BOTS,
+    BlackLedgerRules,
+    get_variant as get_black_ledger_variant,
+)
+from tabletop_lab.games.black_ledger.metrics import summarize_results as summarize_black_ledger_results
+from tabletop_lab.games.undersight import (
+    BOT_REGISTRY as UNDERSIGHT_BOTS,
+    UndersightRules,
+    get_variant as get_undersight_variant,
+)
+from tabletop_lab.games.undersight.metrics import summarize_results as summarize_undersight_results
+
+
+GAMES = {
+    "black_ledger": (
+        BlackLedgerRules,
+        BLACK_LEDGER_BOTS,
+        get_black_ledger_variant,
+        summarize_black_ledger_results,
+    ),
+    "undersight": (
+        UndersightRules,
+        UNDERSIGHT_BOTS,
+        get_undersight_variant,
+        summarize_undersight_results,
+    ),
+}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run many Black Ledger games.")
-    parser.add_argument("--game", default="black_ledger", choices=["black_ledger"])
+    parser = argparse.ArgumentParser(description="Run many tabletop games.")
+    parser.add_argument("--game", default="black_ledger", choices=sorted(GAMES))
     parser.add_argument("-n", "--games", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--variant", default="base_3p")
@@ -32,9 +58,10 @@ def main() -> None:
     if args.max_turns is not None and args.max_turns < 1:
         raise SystemExit("--max-turns must be at least 1")
     names = [name.strip() for name in args.bots.split(",")]
+    rules_cls, bot_registry, get_variant, summarize_results = GAMES[args.game]
 
     def factory():
-        return [BOT_REGISTRY[name]() for name in names]
+        return [bot_registry[name]() for name in names]
 
     def progress(completed: int, total: int, elapsed: float) -> None:
         if not args.progress:
@@ -49,7 +76,7 @@ def main() -> None:
         )
 
     results = Simulator().run_many(
-        BlackLedgerRules(),
+        rules_cls(),
         factory,
         get_variant(args.variant),
         args.games,

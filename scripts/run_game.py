@@ -4,12 +4,27 @@ import argparse
 import json
 
 from tabletop_lab.engine import Simulator
-from tabletop_lab.games.black_ledger import BOT_REGISTRY, BlackLedgerRules, get_variant
+from tabletop_lab.games.black_ledger import (
+    BOT_REGISTRY as BLACK_LEDGER_BOTS,
+    BlackLedgerRules,
+    get_variant as get_black_ledger_variant,
+)
+from tabletop_lab.games.undersight import (
+    BOT_REGISTRY as UNDERSIGHT_BOTS,
+    UndersightRules,
+    get_variant as get_undersight_variant,
+)
+
+
+GAMES = {
+    "black_ledger": (BlackLedgerRules, BLACK_LEDGER_BOTS, get_black_ledger_variant),
+    "undersight": (UndersightRules, UNDERSIGHT_BOTS, get_undersight_variant),
+}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run one Black Ledger game.")
-    parser.add_argument("--game", default="black_ledger", choices=["black_ledger"])
+    parser = argparse.ArgumentParser(description="Run one tabletop game.")
+    parser.add_argument("--game", default="black_ledger", choices=sorted(GAMES))
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--variant", default="base_3p")
     parser.add_argument("--bots", default="random,builder,greedy")
@@ -20,9 +35,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    bots = [BOT_REGISTRY[name.strip()]() for name in args.bots.split(",")]
+    rules_cls, bot_registry, get_variant = GAMES[args.game]
+    bots = [bot_registry[name.strip()]() for name in args.bots.split(",")]
     result = Simulator().run_game(
-        BlackLedgerRules(),
+        rules_cls(),
         bots,
         get_variant(args.variant),
         seed=args.seed,
