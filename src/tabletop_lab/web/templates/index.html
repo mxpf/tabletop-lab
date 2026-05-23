@@ -13,15 +13,24 @@
 
 <section id="game-library">
   <div class="section-head">
-    <h2>Game Library</h2>
+    <div>
+      <h2>Game Library</h2>
+      {% if show_archived %}
+      <p><a href="/">Hide archived games</a></p>
+      {% else %}
+      <p><a href="/?show_archived=true">Show archived games</a></p>
+      {% endif %}
+    </div>
     <a class="button" href="/games/new">Create Game</a>
   </div>
   <div class="grid">
     {% for game in games %}
     <article class="card">
       <h3><a href="/games/{{ game.id }}">{{ game.name }}</a></h3>
-      <p>{{ game.description }}</p>
+      {% if game.archived_at %}<p><span class="status-badge queued">archived</span></p>{% endif %}
+      <p>{{ game.description[:180] }}{% if game.description|length > 180 %}...{% endif %}</p>
       <dl>
+        <dt>ID</dt><dd>#{{ game.id }}</dd>
         <dt>Source</dt><dd>{{ game.source_type }}</dd>
         <dt>Updated</dt><dd>{{ game.updated_at }}</dd>
       </dl>

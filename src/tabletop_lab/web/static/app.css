@@ -330,6 +330,10 @@ pre {
   color: var(--muted);
 }
 
+.danger-zone {
+  border-color: #d8a2a2;
+}
+
 @media (max-width: 720px) {
   .topbar,
   .section-head {

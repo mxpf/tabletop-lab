@@ -15,6 +15,7 @@ class GameRecord:
     source_type: str
     notes: str = ""
     source_path: str | None = None
+    archived_at: str | None = None
 
 
 @dataclass(frozen=True)

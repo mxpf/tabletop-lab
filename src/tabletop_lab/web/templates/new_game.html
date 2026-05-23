@@ -4,15 +4,25 @@
 {% if error %}
 <div class="error-banner">{{ error }}</div>
 {% endif %}
+{% if duplicate_matches %}
+<div class="notice">
+  <p>A game named {{ form_values.name }} already exists. Do you want to edit that game instead?</p>
+  <ul>
+    {% for match in duplicate_matches %}
+    <li><a href="/games/{{ match.id }}">{{ match.name }} #{{ match.id }}</a> · updated {{ match.updated_at }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 <form class="form" action="/games" method="post" enctype="multipart/form-data">
-  <label>Name <input name="name" required></label>
-  <label>Description <input name="description"></label>
+  <label>Name <input name="name" value="{{ form_values.name if form_values else '' }}" required></label>
+  <label>Description <input name="description" value="{{ form_values.description if form_values else '' }}"></label>
   <section class="panel">
     <h2>Add Rules</h2>
     <div class="two-col">
       <div>
         <h3>Paste rules text</h3>
-        <label>Rules Text <textarea name="rules_text" rows="14" placeholder="Paste rules here"></textarea></label>
+        <label>Rules Text <textarea name="rules_text" rows="14" placeholder="Paste rules here">{{ form_values.rules_text if form_values else '' }}</textarea></label>
       </div>
       <div>
         <h3>Upload rules PDF</h3>
@@ -22,7 +32,10 @@
       </div>
     </div>
   </section>
-  <label>Notes <textarea name="notes" rows="4"></textarea></label>
+  <label>Notes <textarea name="notes" rows="4">{{ form_values.notes if form_values else '' }}</textarea></label>
+  {% if duplicate_matches %}
+  <input type="hidden" name="confirm_duplicate" value="1">
+  {% endif %}
   <button type="submit">Create Game</button>
 </form>
 {% endblock %}

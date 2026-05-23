@@ -5,7 +5,10 @@
     <h1>{{ game.name }}</h1>
     <p>{{ game.description }}</p>
   </div>
-  <a class="button" href="/games/{{ game.id }}/upload-rules">Edit Rules</a>
+  <div class="inline-actions">
+    <a class="button secondary-button" href="/games/{{ game.id }}/edit">Edit Details</a>
+    <a class="button" href="/games/{{ game.id }}/upload-rules">Edit Rules</a>
+  </div>
 </div>
 
 {% if is_black_ledger %}

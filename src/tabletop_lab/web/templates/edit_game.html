@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Edit Game Details</h1>
+    <p>Update the library metadata for {{ game.name }}. Rules text is managed separately on the Edit Rules page.</p>
+  </div>
+  <a class="button secondary-button" href="/games/{{ game.id }}">Back to {{ game.name }}</a>
+</div>
+
+<section class="panel">
+  <h2>Details</h2>
+  <form class="form" action="/games/{{ game.id }}/details" method="post">
+    <label>Name <input name="name" value="{{ game.name }}" required></label>
+    <label>Description <textarea name="description" rows="4">{{ game.description }}</textarea></label>
+    <label>Notes <textarea name="notes" rows="5">{{ game.notes }}</textarea></label>
+    <label>Rules Source
+      <select name="source_type" {% if is_built_in %}disabled{% endif %}>
+        <option value="manual" {% if game.source_type == "manual" %}selected{% endif %}>manual</option>
+        <option value="pdf" {% if game.source_type == "pdf" %}selected{% endif %}>pdf</option>
+        <option value="built_in" {% if game.source_type == "built_in" %}selected{% endif %}>built_in</option>
+      </select>
+      <span class="field-help">Where the currently stored rules reference came from.</span>
+    </label>
+    {% if is_built_in %}
+    <input type="hidden" name="source_type" value="built_in">
+    {% endif %}
+    <button type="submit">Save Details</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Archive Game</h2>
+  {% if is_built_in %}
+  <p class="helper">Built-in games cannot be archived from the regular UI.</p>
+  {% elif game.archived_at %}
+  <p>This game is archived and hidden from the main Game Library by default.</p>
+  <form action="/games/{{ game.id }}/unarchive" method="post">
+    <button type="submit">Unarchive Game</button>
+  </form>
+  {% else %}
+  <p>Archived games are hidden from the main Game Library by default, but their rules and saved runs are kept.</p>
+  <form action="/games/{{ game.id }}/archive" method="post">
+    <button type="submit">Archive Game</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel danger-zone">
+  <h2>Delete Game</h2>
+  {% if is_built_in %}
+  <p class="helper">Built-in games like Black Ledger cannot be deleted unless developer mode support is added separately.</p>
+  {% else %}
+  <p>Deleting removes the game record and associated saved runs and Codex jobs. This cannot be undone.</p>
+  <form class="form" action="/games/{{ game.id }}/delete" method="post">
+    <label>Type the game name to confirm <input name="confirm_name" placeholder="{{ game.name }}"></label>
+    <button type="submit">Delete Game</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

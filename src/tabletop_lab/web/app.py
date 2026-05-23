@@ -24,15 +24,16 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
     @app.get("/", response_class=HTMLResponse)
-    def index(request: Request):
+    def index(request: Request, show_archived: bool = Query(default=False)):
         black_ledger_id = database.BUILT_IN_BLACK_LEDGER_ID
         return templates.TemplateResponse(
             "index.html",
             {
                 "request": request,
-                "games": database.list_games(),
+                "games": database.list_games(include_archived=show_archived),
                 "title": "Tabletop Lab",
                 "black_ledger_id": black_ledger_id,
+                "show_archived": show_archived,
             },
         )
 
@@ -54,8 +55,27 @@ def create_app() -> FastAPI:
         description: Annotated[str, Form()] = "",
         rules_text: Annotated[str, Form()] = "",
         notes: Annotated[str, Form()] = "",
+        confirm_duplicate: Annotated[str, Form()] = "",
         pdf_file: Optional[UploadFile] = File(default=None),
     ):
+        duplicate_matches = database.find_games_by_name(name)
+        if duplicate_matches and not confirm_duplicate:
+            return templates.TemplateResponse(
+                "new_game.html",
+                {
+                    "request": request,
+                    "title": "New Game",
+                    "error": None,
+                    "duplicate_matches": duplicate_matches,
+                    "form_values": {
+                        "name": name,
+                        "description": description,
+                        "rules_text": rules_text,
+                        "notes": notes,
+                    },
+                },
+                status_code=200,
+            )
         source_type = "manual"
         source_path = None
         final_rules_text = rules_text.strip()
@@ -102,6 +122,84 @@ def create_app() -> FastAPI:
             source_path=source_path,
         )
         return RedirectResponse(f"/games/{game.id}", status_code=303)
+
+    @app.get("/games/{game_id}/edit", response_class=HTMLResponse)
+    def edit_game_details(request: Request, game_id: int):
+        try:
+            game = database.get_game(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        return templates.TemplateResponse(
+            "edit_game.html",
+            {
+                "request": request,
+                "title": f"Edit {game.name}",
+                "game": game,
+                "is_built_in": game.id == database.BUILT_IN_BLACK_LEDGER_ID,
+            },
+        )
+
+    @app.post("/games/{game_id}/details")
+    def update_game_details(
+        game_id: int,
+        name: Annotated[str, Form()],
+        description: Annotated[str, Form()] = "",
+        notes: Annotated[str, Form()] = "",
+        source_type: Annotated[str, Form()] = "manual",
+    ):
+        try:
+            game = database.get_game(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        allowed_sources = {"manual", "pdf", "built_in"}
+        if source_type not in allowed_sources:
+            raise HTTPException(status_code=400, detail="invalid source type")
+        if game.id == database.BUILT_IN_BLACK_LEDGER_ID:
+            source_type = "built_in"
+        database.update_game_details(
+            game_id,
+            name=name.strip(),
+            description=description.strip(),
+            notes=notes.strip(),
+            source_type=source_type,
+        )
+        return RedirectResponse(f"/games/{game_id}", status_code=303)
+
+    @app.post("/games/{game_id}/archive")
+    def archive_game(game_id: int):
+        try:
+            game = database.get_game(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        if game.id == database.BUILT_IN_BLACK_LEDGER_ID:
+            raise HTTPException(status_code=400, detail="built-in games cannot be archived")
+        database.archive_game(game_id)
+        return RedirectResponse("/", status_code=303)
+
+    @app.post("/games/{game_id}/unarchive")
+    def unarchive_game(game_id: int):
+        try:
+            database.get_game(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        database.unarchive_game(game_id)
+        return RedirectResponse(f"/games/{game_id}", status_code=303)
+
+    @app.post("/games/{game_id}/delete")
+    def delete_game(
+        game_id: int,
+        confirm_name: Annotated[str, Form()] = "",
+    ):
+        try:
+            game = database.get_game(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        if game.id == database.BUILT_IN_BLACK_LEDGER_ID:
+            raise HTTPException(status_code=400, detail="built-in games cannot be deleted")
+        if confirm_name != game.name:
+            raise HTTPException(status_code=400, detail="type the game name to confirm deletion")
+        database.delete_game(game_id)
+        return RedirectResponse("/", status_code=303)
 
     @app.get("/games/{game_id}", response_class=HTMLResponse)
     def game_detail(request: Request, game_id: int, active_run_id: Optional[int] = Query(default=None)):

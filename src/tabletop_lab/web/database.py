@@ -45,7 +45,8 @@ def initialize_database(db_path: str | Path | None = None) -> None:
                 rules_text TEXT NOT NULL DEFAULT '',
                 source_type TEXT NOT NULL CHECK (source_type IN ('manual', 'pdf', 'built_in')),
                 notes TEXT NOT NULL DEFAULT '',
-                source_path TEXT
+                source_path TEXT,
+                archived_at TEXT
             );
 
             CREATE TABLE IF NOT EXISTS simulation_runs (
@@ -82,7 +83,14 @@ def initialize_database(db_path: str | Path | None = None) -> None:
             );
             """
         )
+        _ensure_column(db, "games", "archived_at", "TEXT")
         preload_black_ledger(db)
+
+
+def _ensure_column(db: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def preload_black_ledger(db: sqlite3.Connection) -> None:
@@ -134,9 +142,22 @@ def create_game(
     return get_game(game_id, db_path=db_path)
 
 
-def list_games(db_path: str | Path | None = None) -> list[GameRecord]:
+def list_games(db_path: str | Path | None = None, *, include_archived: bool = False) -> list[GameRecord]:
     with connect(db_path) as db:
-        rows = db.execute("SELECT * FROM games ORDER BY id").fetchall()
+        query = "SELECT * FROM games"
+        if not include_archived:
+            query += " WHERE archived_at IS NULL"
+        query += " ORDER BY id"
+        rows = db.execute(query).fetchall()
+    return [_game_from_row(row) for row in rows]
+
+
+def find_games_by_name(name: str, db_path: str | Path | None = None) -> list[GameRecord]:
+    with connect(db_path) as db:
+        rows = db.execute(
+            "SELECT * FROM games WHERE lower(name) = lower(?) ORDER BY id",
+            (name.strip(),),
+        ).fetchall()
     return [_game_from_row(row) for row in rows]
 
 
@@ -166,6 +187,52 @@ def update_game_rules(
             (rules_text, source_type, source_path, utc_now(), game_id),
         )
     return get_game(game_id, db_path=db_path)
+
+
+def update_game_details(
+    game_id: int,
+    *,
+    name: str,
+    description: str,
+    notes: str,
+    source_type: str,
+    db_path: str | Path | None = None,
+) -> GameRecord:
+    with connect(db_path) as db:
+        db.execute(
+            """
+            UPDATE games
+            SET name = ?, description = ?, notes = ?, source_type = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (name, description, notes, source_type, utc_now(), game_id),
+        )
+    return get_game(game_id, db_path=db_path)
+
+
+def archive_game(game_id: int, db_path: str | Path | None = None) -> GameRecord:
+    with connect(db_path) as db:
+        db.execute(
+            "UPDATE games SET archived_at = ?, updated_at = ? WHERE id = ?",
+            (utc_now(), utc_now(), game_id),
+        )
+    return get_game(game_id, db_path=db_path)
+
+
+def unarchive_game(game_id: int, db_path: str | Path | None = None) -> GameRecord:
+    with connect(db_path) as db:
+        db.execute(
+            "UPDATE games SET archived_at = NULL, updated_at = ? WHERE id = ?",
+            (utc_now(), game_id),
+        )
+    return get_game(game_id, db_path=db_path)
+
+
+def delete_game(game_id: int, db_path: str | Path | None = None) -> None:
+    with connect(db_path) as db:
+        db.execute("DELETE FROM simulation_runs WHERE game_id = ?", (game_id,))
+        db.execute("DELETE FROM codex_jobs WHERE game_id = ?", (game_id,))
+        db.execute("DELETE FROM games WHERE id = ?", (game_id,))
 
 
 def create_simulation_run(
@@ -425,6 +492,7 @@ def _game_from_row(row: sqlite3.Row) -> GameRecord:
         source_type=row["source_type"],
         notes=row["notes"],
         source_path=row["source_path"],
+        archived_at=row["archived_at"],
     )
 
 

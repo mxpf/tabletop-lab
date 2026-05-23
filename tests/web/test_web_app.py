@@ -98,6 +98,63 @@ def test_create_game_from_browser(monkeypatch, tmp_path):
     assert "Bid, reveal, score." in response.text
 
 
+def test_duplicate_name_warning_appears(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+    database.create_game(
+        name="Undersight",
+        description="Existing copy.",
+        rules_text="Existing rules.",
+        source_type="manual",
+        db_path=tmp_path / "tabletop_lab.sqlite",
+    )
+
+    response = client.post(
+        "/games",
+        data={
+            "name": "Undersight",
+            "description": "Duplicate copy.",
+            "rules_text": "New rules.",
+            "notes": "",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "A game named Undersight already exists. Do you want to edit that game instead?" in response.text
+    assert "Undersight #2" in response.text
+    games = database.find_games_by_name("Undersight", tmp_path / "tabletop_lab.sqlite")
+    assert len(games) == 1
+
+
+def test_game_library_hides_archived_games_by_default(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+    game = database.create_game(
+        name="Undersight",
+        description="Archive candidate.",
+        rules_text="Rules.",
+        source_type="manual",
+        db_path=tmp_path / "tabletop_lab.sqlite",
+    )
+    database.archive_game(game.id, tmp_path / "tabletop_lab.sqlite")
+
+    default_page = client.get("/")
+    archived_page = client.get("/?show_archived=true")
+
+    assert "Undersight" not in default_page.text
+    assert "Undersight" in archived_page.text
+    assert "archived" in archived_page.text
+
+
+def test_game_library_cards_show_identifying_metadata(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "<dt>ID</dt><dd>#1</dd>" in response.text
+    assert "<dt>Source</dt><dd>built_in</dd>" in response.text
+    assert "<dt>Updated</dt>" in response.text
+
+
 def test_non_simulatable_game_shows_codex_workflow(monkeypatch, tmp_path):
     client = make_client(monkeypatch, tmp_path)
     response = client.post(
@@ -116,6 +173,98 @@ def test_non_simulatable_game_shows_codex_workflow(monkeypatch, tmp_path):
     assert "Generate Codex Prompt" in response.text
     assert "Create Simulator Branch with Codex" in response.text
     assert "Experimental local developer tool" in response.text
+
+
+def test_edit_game_details_page_is_separate_from_rules(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+    game = database.create_game(
+        name="Undersight",
+        description="Before.",
+        rules_text="Rules.",
+        source_type="manual",
+        notes="Old notes.",
+        db_path=tmp_path / "tabletop_lab.sqlite",
+    )
+
+    page = client.get(f"/games/{game.id}/edit")
+    assert page.status_code == 200
+    assert "Edit Game Details" in page.text
+    assert "Rules text is managed separately" in page.text
+    assert "Rules Source" in page.text
+    assert "Delete Game" in page.text
+
+    response = client.post(
+        f"/games/{game.id}/details",
+        data={
+            "name": "Undersight Revised",
+            "description": "After.",
+            "notes": "New notes.",
+            "source_type": "manual",
+        },
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert "Undersight Revised" in response.text
+    assert database.get_game(game.id, tmp_path / "tabletop_lab.sqlite").notes == "New notes."
+
+
+def test_manual_game_can_be_archived(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+    game = database.create_game(
+        name="Undersight",
+        rules_text="Rules.",
+        source_type="manual",
+        db_path=tmp_path / "tabletop_lab.sqlite",
+    )
+
+    response = client.post(f"/games/{game.id}/archive", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert database.get_game(game.id, tmp_path / "tabletop_lab.sqlite").archived_at is not None
+
+
+def test_built_in_game_cannot_be_deleted_by_default(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+
+    response = client.post("/games/1/delete", data={"confirm_name": "Black Ledger"})
+
+    assert response.status_code == 400
+    assert "built-in games cannot be deleted" in response.text
+    assert database.get_game(1, tmp_path / "tabletop_lab.sqlite").name == "Black Ledger"
+
+
+def test_manual_game_can_be_deleted_with_confirmation(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+    game = database.create_game(
+        name="Undersight",
+        rules_text="Rules.",
+        source_type="manual",
+        db_path=tmp_path / "tabletop_lab.sqlite",
+    )
+    database.create_simulation_run(
+        game_id=game.id,
+        variant_name="draft",
+        bot_lineup=["bot"],
+        number_of_games=1,
+        seed=None,
+        db_path=tmp_path / "tabletop_lab.sqlite",
+    )
+
+    response = client.post(
+        f"/games/{game.id}/delete",
+        data={"confirm_name": "Undersight"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    try:
+        database.get_game(game.id, tmp_path / "tabletop_lab.sqlite")
+    except KeyError:
+        deleted = True
+    else:
+        deleted = False
+    assert deleted
+    assert database.list_runs_for_game(game.id, tmp_path / "tabletop_lab.sqlite") == []
 
 
 def test_black_ledger_does_not_show_codex_create_button(monkeypatch, tmp_path):
