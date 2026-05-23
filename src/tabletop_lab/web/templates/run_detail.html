@@ -4,8 +4,9 @@
   <div>
     <h1>Run {{ run.id }}</h1>
     <p><a href="/games/{{ game.id }}">{{ game.name }}</a> · {{ run.variant_name }} · {{ run.bot_lineup|join(", ") }}</p>
+    <p><a class="back-link" href="/games/{{ game.id }}">Back to {{ game.name }}</a></p>
   </div>
-  <span class="status {{ run.status }}">{{ run.status }}</span>
+  <span class="status-badge {{ run.status }}" data-field="status">{{ run.status }}</span>
 </div>
 
 <section class="panel" data-run-id="{{ run.id }}">
@@ -41,4 +42,3 @@
 </section>
 {% endif %}
 {% endblock %}
-

@@ -34,3 +34,19 @@ class SimulationRunRecord:
     summary_json: dict[str, Any] | None
     error_message: str | None
 
+
+@dataclass(frozen=True)
+class CodexJobRecord:
+    id: int
+    game_id: int
+    status: str
+    branch_name: str
+    prompt_path: str
+    log_text: str
+    test_output: str
+    git_status_output: str
+    changed_files_json: list[str]
+    error_message: str | None
+    started_at: str | None
+    completed_at: str | None
+    created_at: str

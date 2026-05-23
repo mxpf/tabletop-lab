@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Codex Prompt for {{ game.name }}</h1>
+    <p>This prompt is source material for implementing a coded simulator module. Review it before running Codex or copying it into another workflow.</p>
+  </div>
+  <a class="button secondary-button" href="/games/{{ game.id }}">Back to {{ game.name }}</a>
+</div>
+<textarea class="prompt-box" rows="28" readonly>{{ prompt }}</textarea>
+{% endblock %}
+

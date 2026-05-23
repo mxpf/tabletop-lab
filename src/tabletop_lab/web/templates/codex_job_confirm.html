@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Create Simulator Branch with Codex</h1>
+<section class="panel">
+  <dl>
+    <dt>Game</dt><dd>{{ game.name }}</dd>
+    <dt>Proposed branch</dt><dd>{{ branch_name }}</dd>
+    <dt>Prompt path</dt><dd>{{ prompt_path }}</dd>
+  </dl>
+  <div class="notice">
+    This can modify project files. The git working tree must be clean before starting. The app will create a new branch, write the implementation prompt, run Codex locally, run pytest, and preserve logs for review.
+  </div>
+  <div class="inline-actions left">
+    <a class="button secondary-button" href="/games/{{ game.id }}">Cancel</a>
+    <form method="post" action="/games/{{ game.id }}/codex-jobs">
+      <button type="submit">Run Codex</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
+

@@ -5,13 +5,15 @@
     <h1>{{ game.name }}</h1>
     <p>{{ game.description }}</p>
   </div>
-  <a class="button" href="/games/{{ game.id }}/upload-rules">Paste or Upload Rules</a>
+  <a class="button" href="/games/{{ game.id }}/upload-rules">Edit Rules</a>
 </div>
 
 {% if is_black_ledger %}
 <section class="panel" id="run-simulation">
   <h2>Run Simulation</h2>
-  <form class="run-form" action="/runs/start" method="post">
+  <p>Use this panel to run automated playtests for Black Ledger. Choose a rules variant, assign bot players, set the number of games, then start the run. While the simulation runs, this page will show progress. When it finishes, the results are saved below in Previous Runs.</p>
+  <p class="helper">Tip: use 100 games for a quick smoke test, 1,000 games for directional results, and 5,000-10,000 games when comparing close variants.</p>
+  <form class="run-form" action="/runs/start" method="post" data-run-form>
     <input type="hidden" name="game_id" value="{{ game.id }}">
     <label>Variant
       <select name="variant_name">
@@ -19,33 +21,94 @@
         <option value="{{ variant }}" {% if variant == "five_numerals_starting_ledger_3" %}selected{% endif %}>{{ variant }}</option>
         {% endfor %}
       </select>
+      <span class="field-help">Rules configuration to test.</span>
     </label>
     <label>Player 0
       <select name="player0_bot">{% for key, label in bots.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+      <span class="field-help">Bot strategy assigned to this seat.</span>
     </label>
     <label>Player 1
       <select name="player1_bot">{% for key, label in bots.items() %}<option value="{{ key }}" {% if key == "builder" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      <span class="field-help">Bot strategy assigned to this seat.</span>
     </label>
     <label>Player 2
       <select name="player2_bot">{% for key, label in bots.items() %}<option value="{{ key }}" {% if key == "greedy" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      <span class="field-help">Bot strategy assigned to this seat.</span>
     </label>
-    <label>Games <input type="number" name="number_of_games" min="1" value="100"></label>
-    <label>Seed <input type="number" name="seed" placeholder="optional"></label>
-    <label>Progress Every <input type="number" name="progress_every" min="1" value="25"></label>
-    <button type="submit">Start Run</button>
+    <label>Games <input type="number" name="number_of_games" min="1" value="100">
+      <span class="field-help">Number of simulated games to run.</span>
+    </label>
+    <label>Seed <input type="number" name="seed" placeholder="optional">
+      <span class="field-help">Optional. Use the same seed to reproduce a run.</span>
+    </label>
+    <label>Progress Every <input type="number" name="progress_every" min="1" value="25">
+      <span class="field-help">How often the progress display updates.</span>
+    </label>
+    <button type="submit" data-start-run>Start Run</button>
   </form>
 </section>
+<div id="current-run-container">
+{% if active_run %}
+<section class="panel" id="current-run" data-run-id="{{ active_run.id }}">
+  <div class="section-head">
+    <div>
+      <h2>Current Run</h2>
+      <p>{{ active_run.variant_name }} · {{ active_run.number_of_games }} games · {{ active_run.bot_lineup|join(", ") }}</p>
+    </div>
+    <span class="status-badge {{ active_run.status }}" data-field="status">{{ active_run.status }}</span>
+  </div>
+  <div class="progress"><div class="progress-bar" style="width: {{ 100 * active_run.progress_completed / active_run.progress_total if active_run.progress_total else 0 }}%"></div></div>
+  <p class="progress-text">{{ active_run.progress_completed }} / {{ active_run.progress_total }} games</p>
+  <dl class="metrics">
+    <dt>Elapsed</dt><dd data-field="elapsed">{{ "%.2f"|format(active_run.elapsed_seconds or 0) }}s</dd>
+    <dt>Games/sec</dt><dd data-field="gps"></dd>
+    <dt>ETA</dt><dd data-field="eta"></dd>
+  </dl>
+  <a href="/runs/{{ active_run.id }}">Open run detail</a>
+</section>
+{% endif %}
+</div>
 {% else %}
 <section class="notice">
   Pasted or uploaded rules are stored for reference. To simulate this game, a game module still needs to be implemented in code.
+</section>
+<section class="panel">
+  <h2>Make this game simulatable</h2>
+  <p>This game has stored rules, but no simulator module yet. To run automated playtests, Tabletop Lab needs a coded module that defines setup, legal actions, action resolution, bots, variants, scoring, and tests.</p>
+  <div class="inline-actions left">
+    <a class="button secondary-button" href="/games/{{ game.id }}/implementation-prompt">Generate Codex Prompt</a>
+    <a class="button" href="/games/{{ game.id }}/codex-jobs/new">Create Simulator Branch with Codex</a>
+  </div>
+  <p class="helper">Experimental local developer tool. This can modify files in your project. It will create a new git branch and run Codex locally.</p>
+  {% if codex_jobs %}
+  <h3>Codex Jobs</h3>
+  <table>
+    <thead><tr><th>Created</th><th>Status</th><th>Branch</th><th></th></tr></thead>
+    <tbody>
+      {% for job in codex_jobs %}
+      <tr>
+        <td>{{ job.created_at }}</td>
+        <td><span class="status-badge {{ job.status }}">{{ job.status }}</span></td>
+        <td>{{ job.branch_name }}</td>
+        <td><a href="/codex-jobs/{{ job.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </section>
 {% endif %}
 
 <section id="run-history">
   <div class="section-head">
     <h2>Previous Runs</h2>
-    <a class="button" id="compare-runs" href="/games/{{ game.id }}/compare">Compare Runs</a>
+    <div class="inline-actions">
+      <span>Select completed runs below, then compare them.</span>
+      <a class="button" id="compare-runs" href="/games/{{ game.id }}/compare">Select Runs to Compare</a>
+    </div>
   </div>
+  <p>Completed simulations are saved here so you can revisit results and compare variants over time.</p>
+  {% if runs %}
   <table>
     <thead>
       <tr>
@@ -61,7 +124,7 @@
         <td>{{ run.variant_name }}</td>
         <td>{{ run.number_of_games }}</td>
         <td>{{ run.bot_lineup|join(", ") }}</td>
-        <td><span class="status {{ run.status }}">{{ run.status }}</span></td>
+        <td><span class="status-badge {{ run.status }}">{{ run.status }}</span></td>
         <td>{{ "%.2f"|format(summary.get("average_turns", 0)) if summary else "" }}</td>
         <td>
           {% if summary %}
@@ -76,6 +139,9 @@
       {% endfor %}
     </tbody>
   </table>
+  {% else %}
+  <div class="empty-state">No runs yet. Start a simulation above to create the first saved test.</div>
+  {% endif %}
 </section>
 
 <section>

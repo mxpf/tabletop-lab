@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Codex Job {{ job.id }}</h1>
+    <p><a href="/games/{{ game.id }}">{{ game.name }}</a> · {{ job.branch_name }}</p>
+  </div>
+  <span class="status-badge {{ job.status }}" data-field="codex-status">{{ job.status }}</span>
+</div>
+
+<section class="panel" data-codex-job-id="{{ job.id }}">
+  <dl>
+    <dt>Game</dt><dd>{{ game.name }}</dd>
+    <dt>Branch</dt><dd data-field="branch">{{ job.branch_name }}</dd>
+    <dt>Prompt</dt><dd data-field="prompt">{{ job.prompt_path }}</dd>
+    <dt>Started</dt><dd data-field="started">{{ job.started_at or "" }}</dd>
+    <dt>Completed</dt><dd data-field="completed">{{ job.completed_at or "" }}</dd>
+  </dl>
+  {% if job.error_message %}<div class="error-banner" data-field="error">{{ job.error_message }}</div>{% else %}<div class="error-banner" data-field="error" hidden></div>{% endif %}
+</section>
+
+<section>
+  <h2>Log Output</h2>
+  <pre data-field="log">{{ job.log_text }}</pre>
+</section>
+
+<section>
+  <h2>Pytest Result</h2>
+  <pre data-field="test-output">{{ job.test_output }}</pre>
+</section>
+
+<section>
+  <h2>Changed Files</h2>
+  <pre data-field="changed-files">{{ job.changed_files_json|join("\n") }}</pre>
+</section>
+
+<section>
+  <h2>Git Status</h2>
+  <pre data-field="git-status">{{ job.git_status_output }}</pre>
+</section>
+
+<section class="notice">
+  Review the generated files in your editor. If the module looks good and tests pass, commit the branch. Restart the web app if needed, then return to this game page to run simulations.
+</section>
+{% endblock %}

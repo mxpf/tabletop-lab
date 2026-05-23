@@ -104,12 +104,20 @@ def create_app() -> FastAPI:
         return RedirectResponse(f"/games/{game.id}", status_code=303)
 
     @app.get("/games/{game_id}", response_class=HTMLResponse)
-    def game_detail(request: Request, game_id: int):
+    def game_detail(request: Request, game_id: int, active_run_id: Optional[int] = Query(default=None)):
         try:
             game = database.get_game(game_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="game not found") from exc
         runs = database.list_runs_for_game(game_id)
+        active_run = None
+        if active_run_id is not None:
+            try:
+                active_run = database.get_run(active_run_id)
+            except KeyError as exc:
+                raise HTTPException(status_code=404, detail="run not found") from exc
+            if active_run.game_id != game_id:
+                raise HTTPException(status_code=404, detail="run not found for this game")
         return templates.TemplateResponse(
             "game_detail.html",
             {
@@ -117,11 +125,81 @@ def create_app() -> FastAPI:
                 "title": game.name,
                 "game": game,
                 "runs": runs,
+                "active_run": active_run,
                 "is_black_ledger": game.id == database.BUILT_IN_BLACK_LEDGER_ID,
+                "is_simulatable": services.is_game_simulatable(game),
+                "codex_jobs": database.list_codex_jobs_for_game(game.id),
                 "variants": services.available_black_ledger_variants(),
                 "bots": services.available_bots(),
             },
         )
+
+    @app.get("/games/{game_id}/implementation-prompt", response_class=HTMLResponse)
+    def implementation_prompt(request: Request, game_id: int):
+        try:
+            game = database.get_game(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        prompt = services.generate_implementation_prompt(game)
+        return templates.TemplateResponse(
+            "implementation_prompt.html",
+            {
+                "request": request,
+                "title": f"Codex Prompt for {game.name}",
+                "game": game,
+                "prompt": prompt,
+            },
+        )
+
+    @app.get("/games/{game_id}/codex-jobs/new", response_class=HTMLResponse)
+    def new_codex_job(request: Request, game_id: int):
+        try:
+            game = database.get_game(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        if services.is_game_simulatable(game):
+            raise HTTPException(status_code=400, detail="this game is already simulatable")
+        branch_name = services.branch_name_for_game(game)
+        prompt_path = services.prompt_path_for_game(game)
+        return templates.TemplateResponse(
+            "codex_job_confirm.html",
+            {
+                "request": request,
+                "title": "Create Simulator Branch with Codex",
+                "game": game,
+                "branch_name": branch_name,
+                "prompt_path": prompt_path,
+            },
+        )
+
+    @app.post("/games/{game_id}/codex-jobs")
+    def start_codex_job(game_id: int):
+        try:
+            job_id = services.start_codex_job(game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="game not found") from exc
+        except services.CodexSafetyError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return RedirectResponse(f"/codex-jobs/{job_id}", status_code=303)
+
+    @app.get("/codex-jobs/{job_id}", response_class=HTMLResponse)
+    def codex_job_detail(request: Request, job_id: int):
+        try:
+            job = database.get_codex_job(job_id)
+            game = database.get_game(job.game_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="codex job not found") from exc
+        return templates.TemplateResponse(
+            "codex_job_detail.html",
+            {"request": request, "title": f"Codex Job {job.id}", "job": job, "game": game},
+        )
+
+    @app.get("/codex-jobs/{job_id}/status")
+    def codex_job_status(job_id: int):
+        try:
+            return JSONResponse(services.codex_job_status(job_id))
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="codex job not found") from exc
 
     @app.get("/games/{game_id}/upload-rules", response_class=HTMLResponse)
     def upload_rules(request: Request, game_id: int):
@@ -131,15 +209,33 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="game not found") from exc
         return templates.TemplateResponse(
             "upload_rules.html",
-            {"request": request, "title": "Upload Rules", "game": game, "preview": None},
+            {
+                "request": request,
+                "title": f"Edit Rules for {game.name}",
+                "game": game,
+                "edit_rules_text": game.rules_text,
+                "is_built_in": game.id == database.BUILT_IN_BLACK_LEDGER_ID,
+                "source_type": game.source_type,
+                "source_path": game.source_path or "",
+                "extracted": False,
+            },
         )
 
     @app.post("/games/{game_id}/rules")
     def save_pasted_rules(
         game_id: int,
         rules_text: Annotated[str, Form()],
+        source_type: Annotated[str, Form()] = "manual",
+        source_path: Annotated[str, Form()] = "",
     ):
-        database.update_game_rules(game_id, rules_text=rules_text.strip(), source_type="manual")
+        if source_type not in {"manual", "pdf"}:
+            source_type = "manual"
+        database.update_game_rules(
+            game_id,
+            rules_text=rules_text.strip(),
+            source_type=source_type,
+            source_path=source_path or None,
+        )
         return RedirectResponse(f"/games/{game_id}", status_code=303)
 
     @app.post("/games/{game_id}/upload-rules", response_class=HTMLResponse)
@@ -157,9 +253,13 @@ def create_app() -> FastAPI:
                 "upload_rules.html",
                 {
                     "request": request,
-                    "title": "Upload Rules",
+                    "title": f"Edit Rules for {game.name}",
                     "game": game,
-                    "preview": None,
+                    "edit_rules_text": game.rules_text,
+                    "is_built_in": game.id == database.BUILT_IN_BLACK_LEDGER_ID,
+                    "source_type": game.source_type,
+                    "source_path": game.source_path or "",
+                    "extracted": False,
                     "error": f"Could not extract text from that PDF: {exc}",
                 },
                 status_code=400,
@@ -169,27 +269,34 @@ def create_app() -> FastAPI:
                 "upload_rules.html",
                 {
                     "request": request,
-                    "title": "Upload Rules",
+                    "title": f"Edit Rules for {game.name}",
                     "game": game,
-                    "preview": None,
+                    "edit_rules_text": game.rules_text,
+                    "is_built_in": game.id == database.BUILT_IN_BLACK_LEDGER_ID,
+                    "source_type": game.source_type,
+                    "source_path": game.source_path or "",
+                    "extracted": False,
                     "error": "The PDF did not contain extractable text.",
                 },
                 status_code=400,
             )
-        database.update_game_rules(game_id, rules_text=text, source_type="pdf", source_path=path)
-        updated = database.get_game(game_id)
         return templates.TemplateResponse(
             "upload_rules.html",
             {
                 "request": request,
-                "title": "Upload Rules",
-                "game": updated,
-                "preview": text[:4000],
+                "title": f"Edit Rules for {game.name}",
+                "game": game,
+                "edit_rules_text": text,
+                "is_built_in": game.id == database.BUILT_IN_BLACK_LEDGER_ID,
+                "source_type": "pdf",
+                "source_path": path,
+                "extracted": True,
             },
         )
 
     @app.post("/runs/start")
     def start_run(
+        request: Request,
         game_id: Annotated[int, Form()],
         variant_name: Annotated[str, Form()],
         player0_bot: Annotated[str, Form()],
@@ -210,7 +317,17 @@ def create_app() -> FastAPI:
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return RedirectResponse(f"/runs/{run_id}", status_code=303)
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse(
+                {
+                    "run_id": run_id,
+                    "status_url": f"/runs/{run_id}/status",
+                    "game_url": f"/games/{game_id}?active_run_id={run_id}#current-run",
+                    "detail_url": f"/runs/{run_id}",
+                },
+                status_code=202,
+            )
+        return RedirectResponse(f"/games/{game_id}?active_run_id={run_id}#current-run", status_code=303)
 
     @app.get("/runs/{run_id}/status")
     def run_status(run_id: int):

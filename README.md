@@ -40,6 +40,33 @@ Saved app data lives in `data/tabletop_lab.sqlite`. Uploaded PDFs are stored und
 
 Pasted or uploaded rules are stored for reference. To simulate a new game, a game module still needs to be implemented in code.
 
+## Experimental: Running Codex from the UI
+
+For non-simulatable stored-rule games, the web app includes an experimental local developer workflow called **Create Simulator Branch with Codex**. This is intended for local development only.
+
+Requirements:
+
+- Codex CLI must be installed, available on `PATH`, and authenticated.
+- The git working tree must be clean before starting.
+- The game must not already have a simulator module.
+
+What it does:
+
+- Creates a branch named like `codex/<game-slug>-simulator`.
+- Writes an implementation prompt to `codex_tasks/<game-slug>_simulator_prompt.md`.
+- Runs `codex exec` with that prompt.
+- Runs `pytest`.
+- Captures logs, test output, git status, and changed files in SQLite.
+
+This workflow can modify project files. Review all generated files in your editor before committing. The app will not commit, merge, or run arbitrary browser-provided shell commands.
+
+If a job fails:
+
+- Open the Codex job page and read the log, pytest output, and git status.
+- Inspect the branch in your editor.
+- Keep useful files and fix them manually, or switch back to your previous branch and delete the experimental branch.
+- Restart the web app if a generated Python module needs to be imported by the running process.
+
 ## Run Tests
 
 ```bash

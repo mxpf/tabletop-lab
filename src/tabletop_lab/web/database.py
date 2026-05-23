@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .models import GameRecord, SimulationRunRecord
+from .models import CodexJobRecord, GameRecord, SimulationRunRecord
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -63,6 +63,22 @@ def initialize_database(db_path: str | Path | None = None) -> None:
                 elapsed_seconds REAL,
                 summary_json TEXT,
                 error_message TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS codex_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+                status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'complete', 'failed')),
+                branch_name TEXT NOT NULL,
+                prompt_path TEXT NOT NULL,
+                log_text TEXT NOT NULL DEFAULT '',
+                test_output TEXT NOT NULL DEFAULT '',
+                git_status_output TEXT NOT NULL DEFAULT '',
+                changed_files_json TEXT NOT NULL DEFAULT '[]',
+                error_message TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                created_at TEXT NOT NULL
             );
             """
         )
@@ -280,6 +296,124 @@ def list_runs(run_ids: Iterable[int], db_path: str | Path | None = None) -> list
     return [_run_from_row(row) for row in rows]
 
 
+def create_codex_job(
+    *,
+    game_id: int,
+    branch_name: str,
+    prompt_path: str,
+    db_path: str | Path | None = None,
+) -> CodexJobRecord:
+    with connect(db_path) as db:
+        cursor = db.execute(
+            """
+            INSERT INTO codex_jobs (
+                game_id, status, branch_name, prompt_path, created_at
+            ) VALUES (?, 'queued', ?, ?, ?)
+            """,
+            (game_id, branch_name, prompt_path, utc_now()),
+        )
+        job_id = cursor.lastrowid
+        db.commit()
+    return get_codex_job(job_id, db_path=db_path)
+
+
+def mark_codex_job_running(job_id: int, db_path: str | Path | None = None) -> None:
+    with connect(db_path) as db:
+        db.execute(
+            "UPDATE codex_jobs SET status = 'running', started_at = ? WHERE id = ?",
+            (utc_now(), job_id),
+        )
+
+
+def append_codex_job_log(job_id: int, text: str, db_path: str | Path | None = None) -> None:
+    if not text:
+        return
+    with connect(db_path) as db:
+        db.execute(
+            "UPDATE codex_jobs SET log_text = log_text || ? WHERE id = ?",
+            (text, job_id),
+        )
+
+
+def complete_codex_job(
+    job_id: int,
+    *,
+    test_output: str,
+    git_status_output: str,
+    changed_files: list[str],
+    db_path: str | Path | None = None,
+) -> None:
+    with connect(db_path) as db:
+        db.execute(
+            """
+            UPDATE codex_jobs
+            SET status = 'complete',
+                completed_at = ?,
+                test_output = ?,
+                git_status_output = ?,
+                changed_files_json = ?,
+                error_message = NULL
+            WHERE id = ?
+            """,
+            (
+                utc_now(),
+                test_output,
+                git_status_output,
+                json.dumps(changed_files),
+                job_id,
+            ),
+        )
+
+
+def fail_codex_job(
+    job_id: int,
+    *,
+    error_message: str,
+    test_output: str = "",
+    git_status_output: str = "",
+    changed_files: list[str] | None = None,
+    db_path: str | Path | None = None,
+) -> None:
+    with connect(db_path) as db:
+        db.execute(
+            """
+            UPDATE codex_jobs
+            SET status = 'failed',
+                completed_at = ?,
+                error_message = ?,
+                test_output = ?,
+                git_status_output = ?,
+                changed_files_json = ?
+            WHERE id = ?
+            """,
+            (
+                utc_now(),
+                error_message,
+                test_output,
+                git_status_output,
+                json.dumps(changed_files or []),
+                job_id,
+            ),
+        )
+
+
+def get_codex_job(job_id: int, db_path: str | Path | None = None) -> CodexJobRecord:
+    with connect(db_path) as db:
+        row = db.execute("SELECT * FROM codex_jobs WHERE id = ?", (job_id,)).fetchone()
+    if not row:
+        raise KeyError(f"codex job not found: {job_id}")
+    return _codex_job_from_row(row)
+
+
+def list_codex_jobs_for_game(game_id: int, db_path: str | Path | None = None) -> list[CodexJobRecord]:
+    with connect(db_path) as db:
+        rows = db.execute(
+            "SELECT * FROM codex_jobs WHERE game_id = ? ORDER BY id DESC",
+            (game_id,),
+        ).fetchall()
+    return [_codex_job_from_row(row) for row in rows]
+
+
 def _game_from_row(row: sqlite3.Row) -> GameRecord:
     return GameRecord(
         id=row["id"],
@@ -311,6 +445,24 @@ def _run_from_row(row: sqlite3.Row) -> SimulationRunRecord:
         elapsed_seconds=row["elapsed_seconds"],
         summary_json=summary,
         error_message=row["error_message"],
+    )
+
+
+def _codex_job_from_row(row: sqlite3.Row) -> CodexJobRecord:
+    return CodexJobRecord(
+        id=row["id"],
+        game_id=row["game_id"],
+        status=row["status"],
+        branch_name=row["branch_name"],
+        prompt_path=row["prompt_path"],
+        log_text=row["log_text"],
+        test_output=row["test_output"],
+        git_status_output=row["git_status_output"],
+        changed_files_json=json.loads(row["changed_files_json"]),
+        error_message=row["error_message"],
+        started_at=row["started_at"],
+        completed_at=row["completed_at"],
+        created_at=row["created_at"],
     )
 
 

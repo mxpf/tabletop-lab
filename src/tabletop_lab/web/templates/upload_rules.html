@@ -1,27 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Rules for {{ game.name }}</h1>
+<div class="section-head">
+  <div>
+    <h1>Edit Rules for {{ game.name }}</h1>
+    <p>Use this page to update the stored rules text for {{ game.name }}. You can either paste revised rules directly or upload a PDF and extract its text. Saving here replaces the rules text shown on the {{ game.name }} page. It does not change the coded simulator rules unless the game module is updated separately.</p>
+  </div>
+  <a class="button secondary-button" href="/games/new">Create a new game instead</a>
+</div>
+{% if is_built_in %}
+<div class="notice">
+  Note: {{ game.name }} has a coded simulation module. Editing this rules text changes the displayed reference rules only. It does not automatically change the simulator behavior.
+</div>
+{% endif %}
 {% if error %}
 <div class="error-banner">{{ error }}</div>
 {% endif %}
+{% if extracted %}
+<div class="notice">
+  Extracted PDF text has been placed in the rules text area for review. Click Save Rules to replace the stored rules for this game.
+</div>
+{% endif %}
 <div class="two-col">
   <section class="panel">
-    <h2>Paste Rules</h2>
+    <h2>Paste Revised Rules</h2>
+    <p class="helper">Paste new rules text here. When you click Save Rules, this text will replace the current stored rules for this game.</p>
     <form class="form" action="/games/{{ game.id }}/rules" method="post">
-      <textarea name="rules_text" rows="18">{{ game.rules_text }}</textarea>
+      <textarea name="rules_text" rows="18">{{ edit_rules_text }}</textarea>
+      <input type="hidden" name="source_type" value="{{ source_type }}">
+      <input type="hidden" name="source_path" value="{{ source_path }}">
       <button type="submit">Save Rules</button>
     </form>
   </section>
   <section class="panel">
-    <h2>Upload PDF</h2>
+    <h2>Upload Rules PDF</h2>
+    <p class="helper">Upload a PDF to extract rules text. Extracting text will place the extracted text into the rules text area before saving. Saving will replace the current stored rules for this game.</p>
     <form class="form" action="/games/{{ game.id }}/upload-rules" method="post" enctype="multipart/form-data">
       <input type="file" name="pdf_file" accept="application/pdf" required>
       <button type="submit">Extract Text</button>
     </form>
-    {% if preview %}
-    <h3>Extracted Preview</h3>
-    <pre class="rules">{{ preview }}</pre>
-    {% endif %}
   </section>
 </div>
 {% endblock %}
