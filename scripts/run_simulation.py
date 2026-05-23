@@ -4,6 +4,8 @@ import argparse
 import csv
 import json
 import sys
+from dataclasses import dataclass
+from typing import Callable
 
 from tabletop_lab.engine import Simulator
 from tabletop_lab.games.black_ledger import (
@@ -20,18 +22,29 @@ from tabletop_lab.games.undersight import (
 from tabletop_lab.games.undersight.metrics import summarize_results as summarize_undersight_results
 
 
+@dataclass(frozen=True)
+class GameCliConfig:
+    rules_cls: type
+    bot_registry: dict
+    get_variant: Callable
+    summarize_results: Callable
+    default_bots: str
+
+
 GAMES = {
-    "black_ledger": (
+    "black_ledger": GameCliConfig(
         BlackLedgerRules,
         BLACK_LEDGER_BOTS,
         get_black_ledger_variant,
         summarize_black_ledger_results,
+        "random,builder,greedy",
     ),
-    "undersight": (
+    "undersight": GameCliConfig(
         UndersightRules,
         UNDERSIGHT_BOTS,
         get_undersight_variant,
         summarize_undersight_results,
+        "random,greedy,safety",
     ),
 }
 
@@ -42,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-n", "--games", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--variant", default="base_3p")
-    parser.add_argument("--bots", default="random,builder,greedy")
+    parser.add_argument("--bots", default=None)
     parser.add_argument("--max-turns", type=int, default=200)
     parser.add_argument("--progress", action="store_true")
     parser.add_argument("--progress-every", type=int, default=100)
@@ -57,11 +70,12 @@ def main() -> None:
         raise SystemExit("--progress-every must be at least 1")
     if args.max_turns is not None and args.max_turns < 1:
         raise SystemExit("--max-turns must be at least 1")
-    names = [name.strip() for name in args.bots.split(",")]
-    rules_cls, bot_registry, get_variant, summarize_results = GAMES[args.game]
+    config = GAMES[args.game]
+    bot_lineup = args.bots or config.default_bots
+    names = [name.strip() for name in bot_lineup.split(",")]
 
     def factory():
-        return [bot_registry[name]() for name in names]
+        return [config.bot_registry[name]() for name in names]
 
     def progress(completed: int, total: int, elapsed: float) -> None:
         if not args.progress:
@@ -76,15 +90,15 @@ def main() -> None:
         )
 
     results = Simulator().run_many(
-        rules_cls(),
+        config.rules_cls(),
         factory,
-        get_variant(args.variant),
+        config.get_variant(args.variant),
         args.games,
         seed=args.seed,
         max_turns=args.max_turns,
         progress_callback=progress if args.progress else None,
     )
-    summary = summarize_results(results)
+    summary = config.summarize_results(results)
     print(json.dumps(summary, indent=2, sort_keys=True))
 
     if args.json:

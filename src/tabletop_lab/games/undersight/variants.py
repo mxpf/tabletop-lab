@@ -17,6 +17,7 @@ class UndersightVariant:
 
 VARIANTS: dict[str, UndersightVariant] = {
     "base_3p": UndersightVariant("base_3p"),
+    "base": UndersightVariant("base_3p"),
     "base_2p": UndersightVariant("base_2p", player_count=2),
     "base_4p": UndersightVariant("base_4p", player_count=4),
     "quick_2p": UndersightVariant("quick_2p", player_count=2, vp_target=8, severance_limit=4),
